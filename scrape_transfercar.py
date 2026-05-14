@@ -6,6 +6,7 @@ import os
 import re
 from dataclasses import dataclass, asdict
 from datetime import datetime
+import time
 from typing import Iterable
 from urllib.parse import urlencode, urljoin
 
@@ -194,13 +195,17 @@ def crawl_listings(start_url: str, max_pages: int | None = None, year: int | Non
 
     while current_url:
         pages_visited += 1
-        
+
         # Detect infinite loop: if URL doesn't change, stop
         if current_url == prev_url:
+            print(f"Stopping pagination: next URL is same as previous ({current_url})", flush=True)
             break
-        
+
         prev_url = current_url
+        print(f"Fetching page {pages_visited}: {current_url}", flush=True)
+        start_ts = time.time()
         html = fetch_html(session, current_url)
+        fetch_elapsed = time.time() - start_ts
         soup = BeautifulSoup(html, "html.parser")
         cards = soup.select(".vehicle-list .tile-shadowed")
 
@@ -210,12 +215,20 @@ def crawl_listings(start_url: str, max_pages: int | None = None, year: int | Non
                 continue
             seen_urls.add(listing.listing_url)
             listings.append(listing)
+        print(f"Page {pages_visited} fetched in {fetch_elapsed:.1f}s: found {len(cards)} cards; total listings so far: {len(listings)}", flush=True)
 
         if max_pages is not None and pages_visited >= max_pages:
+            print(f"Reached max_pages={max_pages}; stopping.", flush=True)
             break
 
         next_link = soup.select_one(".pagination li.next a[href]")
-        current_url = urljoin(current_url, next_link["href"]) if next_link else ""
+        if next_link:
+            next_url = urljoin(current_url, next_link["href"])
+            print(f"Next page URL: {next_url}", flush=True)
+            current_url = next_url
+        else:
+            print("No next page link; finished pagination.", flush=True)
+            current_url = ""
 
     return listings
 

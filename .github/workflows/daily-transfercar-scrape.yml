@@ -34,12 +34,13 @@ jobs:
       - name: Validate scraper
         run: python -m py_compile scrape_transfercar.py
 
-      - name: Run scraper (timeout 30s)
+      - name: Run scraper (timeout 120s, verbose)
         run: |
+          set -euxo pipefail
           mkdir -p data
           SNAPSHOT_DATE="$(date -u +%Y-%m-%d)"
-          echo "Running scraper with 30s timeout..."
-          timeout 30s python scrape_transfercar.py \
+          echo "Start scraping at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          timeout 120s python scrape_transfercar.py \
             --output data/transfercar_listings_daily.csv \
             --history-output data/transfercar_listings_history.csv \
             --state-output data/transfercar_listings_state.csv \
@@ -47,12 +48,13 @@ jobs:
             --year "$(date -u +%Y)"
           rc=$?
           if [ "$rc" -eq 124 ]; then
-            echo "Scraper timed out after 30s." >&2
+            echo "Scraper timed out after 120s." >&2
             exit $rc
           elif [ "$rc" -ne 0 ]; then
             echo "Scraper failed with exit code $rc." >&2
             exit $rc
           fi
+          echo "Finished scraping at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
       - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
