@@ -190,9 +190,16 @@ def crawl_listings(start_url: str, max_pages: int | None = None, year: int | Non
     seen_urls: set[str] = set()
     current_url = start_url
     pages_visited = 0
+    prev_url = None  # Track previous URL to detect pagination loops
 
     while current_url:
         pages_visited += 1
+        
+        # Detect infinite loop: if URL doesn't change, stop
+        if current_url == prev_url:
+            break
+        
+        prev_url = current_url
         html = fetch_html(session, current_url)
         soup = BeautifulSoup(html, "html.parser")
         cards = soup.select(".vehicle-list .tile-shadowed")
