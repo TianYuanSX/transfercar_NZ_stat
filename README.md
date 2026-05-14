@@ -75,3 +75,7 @@ python scrape_transfercar.py --pickup Auckland --dropoff Christchurch --output f
 ```
 
 The script follows pagination automatically and stops when there are no more result pages.
+
+## Troubleshooting
+
+**Script hangs or runs very slowly:** This was caused by a pagination bug on the Transfercar website where the "next" link on the last page points back to itself, creating an infinite loop. As of the latest version, this is fixed by detecting duplicate URLs and stopping pagination. If you experience this, please ensure you're running the latest version from the `main` branch.
