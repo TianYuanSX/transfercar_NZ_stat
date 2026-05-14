@@ -1,4 +1,4 @@
-name: Daily Transfercar Scrape
+name: Transfercar NZ Stat Daily Scrape
 
 on:
   schedule:
@@ -48,7 +48,7 @@ jobs:
       - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
         with:
-          name: transfercar-listings-daily
+          name: transfercar-nz-stat-daily
           path: data/*.csv
 
       - name: Commit and push CSV changes

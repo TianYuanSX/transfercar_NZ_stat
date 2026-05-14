@@ -1,4 +1,4 @@
-# Transfercar CSV scraper
+# Transfercar NZ Stat
 
 This small Python script crawls the current relocation listings from Transfercar and exports them to CSV.
 
@@ -11,6 +11,14 @@ This repository includes a GitHub Actions workflow at `.github/workflows/daily-t
 - It generates and maintains 3 CSV files under `data/`.
 - It uploads the CSV files as workflow artifacts.
 - It auto-commits and pushes CSV changes when data changes.
+- It is designed to run directly on the `main` branch of `transfercar_NZ_stat`.
+
+### Will it run directly?
+
+Yes, with two conditions:
+
+1. The repository exists on GitHub with the workflow file committed to `main`.
+2. In GitHub, **Actions** permissions allow read and write access so the workflow can push updated CSV files back to the repository.
 
 ### Data files and update strategy
 
@@ -36,7 +44,7 @@ Upsert rule:
 
 ### One-time setup
 
-1. Create a GitHub repository and push this project.
+1. Create a GitHub repository named `transfercar_NZ_stat` and push this project.
 2. In GitHub, open **Settings** -> **Actions** -> **General**.
 3. Under **Workflow permissions**, select **Read and write permissions**.
 4. Save settings.
