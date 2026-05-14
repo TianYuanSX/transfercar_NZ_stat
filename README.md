@@ -57,6 +57,28 @@ After that, the daily task will run automatically.
 pip install -r requirements.txt
 ```
 
+## Python virtual environment
+
+Recommended: create and use a local virtual environment in the project root.
+
+Linux / macOS:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# run the scraper
+python scrape_transfercar.py --max-pages 1
+```
+
+If you prefer not to activate, you can run the bundled Python directly:
+
+```bash
+.venv/bin/python scrape_transfercar.py --max-pages 1
+```
+
+Note: `.venv` is recommended to be ignored by Git (the repository already includes `.venv` in `.gitignore`).
+
 ## Run
 
 ```bash
