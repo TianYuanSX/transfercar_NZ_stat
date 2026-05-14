@@ -8,9 +8,31 @@ This repository includes a GitHub Actions workflow at `.github/workflows/daily-t
 
 - It runs every day at `00:10 UTC`.
 - It can also be triggered manually from the **Actions** tab.
-- It generates `data/transfercar_listings_daily.csv`.
-- It uploads the CSV as a workflow artifact.
-- It auto-commits and pushes the CSV when data changes.
+- It generates and maintains 3 CSV files under `data/`.
+- It uploads the CSV files as workflow artifacts.
+- It auto-commits and pushes CSV changes when data changes.
+
+### Data files and update strategy
+
+- `data/transfercar_listings_daily.csv`
+: Latest full snapshot from the current run.
+- `data/transfercar_listings_history.csv`
+: Historical table with one row per `snapshot_date + listing_url` (append-or-update).
+- `data/transfercar_listings_state.csv`
+: URL-indexed state table (upsert) for the latest known status.
+
+`transfercar_listings_state.csv` includes:
+
+- `left_initial`
+: The earliest known or maximum known initial capacity for this listing URL. In implementation, it keeps the maximum seen value across runs.
+- `left_latest`
+: The latest observed `left` value from the current update.
+
+Upsert rule:
+
+1. Use `listing_url` as the index key.
+2. If URL does not exist, create a new row and initialize both `left_initial` and `left_latest`.
+3. If URL exists, update current fields and refresh `left_latest`; keep `left_initial` as max(existing, current).
 
 ### One-time setup
 
@@ -32,6 +54,11 @@ pip install -r requirements.txt
 ```bash
 python scrape_transfercar.py --output transfercar_listings.csv
 ```
+
+Default run also updates history/state files:
+
+- `data/transfercar_listings_history.csv`
+- `data/transfercar_listings_state.csv`
 
 Optional filters are supported:
 

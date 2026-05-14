@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -37,6 +38,32 @@ class Listing:
     paid_days_rate: str
     requested_by: str
     left: str
+
+
+LISTING_FIELDNAMES = [field.name for field in Listing.__dataclass_fields__.values()]
+
+
+STATE_FIELDNAMES = [
+    "listing_url",
+    "pickup_when",
+    "pickup_location",
+    "dropoff_when",
+    "dropoff_location",
+    "vehicle_type",
+    "deal",
+    "included",
+    "free_days",
+    "paid_days_count",
+    "paid_days_rate",
+    "requested_by",
+    "left_initial",
+    "left_latest",
+    "first_seen_at",
+    "last_seen_at",
+]
+
+
+HISTORY_FIELDNAMES = ["snapshot_date", *LISTING_FIELDNAMES]
 
 
 def build_search_url(pickup: str = "", dropoff: str = "", sort_col: str = "dates", view_by: str = "list") -> str:
@@ -188,12 +215,117 @@ def crawl_listings(start_url: str, max_pages: int | None = None, year: int | Non
 
 def write_csv(listings: Iterable[Listing], output_path: str) -> None:
     rows = [asdict(listing) for listing in listings]
-    fieldnames = list(rows[0].keys()) if rows else [field.name for field in Listing.__dataclass_fields__.values()]
+    fieldnames = list(rows[0].keys()) if rows else LISTING_FIELDNAMES
+
+    ensure_parent_dir(output_path)
 
     with open(output_path, "w", newline="", encoding="utf-8-sig") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def ensure_parent_dir(path: str) -> None:
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
+def read_csv_rows(path: str) -> list[dict[str, str]]:
+    if not os.path.exists(path):
+        return []
+
+    with open(path, "r", newline="", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        return [{key: value or "" for key, value in row.items()} for row in reader]
+
+
+def to_int(value: str) -> int | None:
+    if value is None:
+        return None
+    cleaned = clean_text(value)
+    if not cleaned:
+        return None
+    if not cleaned.isdigit():
+        return None
+    return int(cleaned)
+
+
+def append_or_update_history(listings: Iterable[Listing], snapshot_date: str, history_path: str) -> int:
+    existing_rows = read_csv_rows(history_path)
+    index: dict[tuple[str, str], dict[str, str]] = {}
+
+    for row in existing_rows:
+        key = (row.get("snapshot_date", ""), row.get("listing_url", ""))
+        if key[0] and key[1]:
+            index[key] = row
+
+    for listing in listings:
+        listing_row = asdict(listing)
+        key = (snapshot_date, listing_row["listing_url"])
+        index[key] = {"snapshot_date": snapshot_date, **listing_row}
+
+    merged_rows = sorted(index.values(), key=lambda row: (row["snapshot_date"], row["listing_url"]))
+
+    ensure_parent_dir(history_path)
+    with open(history_path, "w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(file, fieldnames=HISTORY_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(merged_rows)
+
+    return len(merged_rows)
+
+
+def upsert_state(listings: Iterable[Listing], snapshot_date: str, state_path: str) -> int:
+    existing_rows = read_csv_rows(state_path)
+    state_index: dict[str, dict[str, str]] = {}
+
+    for row in existing_rows:
+        url = row.get("listing_url", "")
+        if url:
+            state_index[url] = row
+
+    for listing in listings:
+        row = asdict(listing)
+        url = row["listing_url"]
+        current_left = to_int(row.get("left", ""))
+
+        existing = state_index.get(url)
+        if existing is None:
+            left_initial = str(current_left) if current_left is not None else ""
+            left_latest = str(current_left) if current_left is not None else ""
+            state_index[url] = {
+                **{key: row.get(key, "") for key in LISTING_FIELDNAMES if key != "left"},
+                "left_initial": left_initial,
+                "left_latest": left_latest,
+                "first_seen_at": snapshot_date,
+                "last_seen_at": snapshot_date,
+            }
+            continue
+
+        existing_initial = to_int(existing.get("left_initial", ""))
+        known_values = [value for value in (existing_initial, current_left) if value is not None]
+        updated_initial = max(known_values) if known_values else None
+        updated_latest = current_left if current_left is not None else to_int(existing.get("left_latest", ""))
+
+        updated_row = {
+            **{key: row.get(key, "") for key in LISTING_FIELDNAMES if key != "left"},
+            "left_initial": str(updated_initial) if updated_initial is not None else "",
+            "left_latest": str(updated_latest) if updated_latest is not None else "",
+            "first_seen_at": existing.get("first_seen_at", snapshot_date) or snapshot_date,
+            "last_seen_at": snapshot_date,
+        }
+        state_index[url] = updated_row
+
+    state_rows = [state_index[url] for url in sorted(state_index.keys())]
+
+    ensure_parent_dir(state_path)
+    with open(state_path, "w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(file, fieldnames=STATE_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(state_rows)
+
+    return len(state_rows)
 
 
 def parse_args() -> argparse.Namespace:
@@ -205,6 +337,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", default="transfercar_listings.csv", help="CSV output file path")
     parser.add_argument("--max-pages", type=int, default=None, help="Safety limit for the number of pages to crawl")
     parser.add_argument("--year", type=int, default=datetime.now().year, help="Year used to normalize pickup/drop-off dates")
+    parser.add_argument("--snapshot-date", default=datetime.utcnow().strftime("%Y-%m-%d"), help="Snapshot date for history/state outputs")
+    parser.add_argument("--history-output", default="data/transfercar_listings_history.csv", help="Append-or-update historical CSV path")
+    parser.add_argument("--state-output", default="data/transfercar_listings_state.csv", help="URL-indexed upsert CSV path")
     return parser.parse_args()
 
 
@@ -218,7 +353,12 @@ def main() -> None:
     )
     listings = crawl_listings(start_url, max_pages=args.max_pages, year=args.year)
     write_csv(listings, args.output)
+    history_count = append_or_update_history(listings, args.snapshot_date, args.history_output)
+    state_count = upsert_state(listings, args.snapshot_date, args.state_output)
+
     print(f"Saved {len(listings)} listings to {args.output}")
+    print(f"History rows: {history_count} -> {args.history_output}")
+    print(f"State rows: {state_count} -> {args.state_output}")
 
 
 if __name__ == "__main__":
