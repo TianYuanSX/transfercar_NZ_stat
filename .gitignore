@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.vscode/
+
+# Local one-off outputs; the CI-managed CSV lives under data/
+transfercar_listings*.csv
