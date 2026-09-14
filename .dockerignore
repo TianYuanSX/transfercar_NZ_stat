@@ -1,0 +1,17 @@
+# Only send runtime sources and the demo fixtures to the container builder.
+**
+!pyproject.toml
+!requirements.lock
+!README.md
+!LICENSE
+!src/
+!src/**
+!apps/
+!apps/dashboard.py
+!samples/
+!samples/**
+!deploy/
+!deploy/Dockerfile
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/

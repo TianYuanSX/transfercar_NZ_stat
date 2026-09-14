@@ -1,0 +1,31 @@
+name: Collect observations
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 19 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: transfercar-collection
+  cancel-in-progress: false
+jobs:
+  collect:
+    # Enable only after the runner can access the source and migrations are applied.
+    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_COLLECTION == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+      - run: pip install -r requirements.lock && pip install --no-deps .
+      - name: Collect with stable logical run ID across workflow retries
+        env:
+          LOGICAL_RUN: ${{ github.repository }}:${{ github.run_id }}
+        run: |
+          RUN_UUID=$(python -c 'import os,uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, os.environ["LOGICAL_RUN"]))')
+          transfercar collect --run-id "$RUN_UUID"
