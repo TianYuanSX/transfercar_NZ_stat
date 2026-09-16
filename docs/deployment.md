@@ -28,6 +28,8 @@ A workflow rerun derives the same UUID from the repository and `github.run_id`. 
 
 If a hosted runner receives 403, the batch remains unsuccessful. Leave scheduling disabled until collection works from an appropriate execution environment. Browser access does not prove that hosted runner access will work.
 
+If an available Linux host can access the source, use the [local daily scheduler](local-scheduler.md) to run the same collector and write directly to Supabase. It includes a cron entry, protected runtime configuration, overlap prevention, daily batch identity, and execution logs.
+
 ## 4. Dashboard host
 
 The prepared deployment path targets a Linux host with Bash, Docker, curl, flock, and SSH on port 22. The deployment user needs Docker access and write access to `/opt/transfercar`. Public HTTPS access requires a reverse proxy in front of the dashboard's localhost port.

@@ -147,6 +147,8 @@ Without `TEST_DATABASE_URL`, database and dashboard integration tests are skippe
 
 Enable scheduled collection after migrations and a successful manual run from the runner. The schedule is 07:17 or 08:17 the next day in New Zealand, depending on daylight saving; actual execution can be delayed. Workflow reruns reuse a deterministic collection UUID.
 
+For collection from a Linux host that can access the source, [the local scheduler](docs/local-scheduler.md) uses cron at 07:17 New Zealand local time, the Supabase writer connection, daily logs, and a stable batch UUID per day. Run `bash scripts/collect_daily.sh` to invoke the same task manually. Keep the GitHub collection schedule disabled while using this host.
+
 The deployment workflow applies migrations, checks database access, replaces the application container, and restores the previous container if startup or health checks fail. Supabase configuration and a dashboard hosting environment are separate setup steps; workflow files alone do not constitute a deployed service. See the [deployment guide](docs/deployment.md).
 
 ## Source behaviour and limitations
